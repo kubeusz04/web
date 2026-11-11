@@ -1,0 +1,8 @@
+html{-webkit-text-size-adjust:100%;scroll-padding-bottom:24px}
+button,a,input,select,textarea{touch-action:manipulation}
+button,input,select,textarea{font-size:max(16px,1em)}
+img,video{max-width:100%}
+video{object-fit:contain}
+html.app-hidden *,html.app-hidden *::before,html.app-hidden *::after{animation-play-state:paused!important}
+@media(max-width:600px){.ej-wrap{width:100%;padding-left:14px;padding-right:14px;box-sizing:border-box}.ej-panel,.ej-media{min-width:0;max-width:100%;box-sizing:border-box}.ej-mascot-img{max-width:60px}.ej-topbar{flex-wrap:wrap;gap:8px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto!important}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}

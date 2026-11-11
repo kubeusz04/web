@@ -1,0 +1,13 @@
+import {cpSync,existsSync,mkdirSync} from 'node:fs';
+import path from 'node:path';
+import {spawn} from 'node:child_process';
+import {loadEnvFile} from 'node:process';
+const root=process.cwd(),standalone=path.join(root,'.next','standalone');
+if(!existsSync(path.join(standalone,'server.js')))throw new Error('Run npm run build before npm start.');
+if(existsSync('.env.local'))loadEnvFile('.env.local');
+for(const name of ['public','migrations'])cpSync(path.join(root,name),path.join(standalone,name),{recursive:true});
+mkdirSync(path.join(standalone,'.next'),{recursive:true});
+cpSync(path.join(root,'.next','static'),path.join(standalone,'.next','static'),{recursive:true});
+const child=spawn(process.execPath,[path.join(standalone,'server.js')],{stdio:'inherit',env:{...process.env,HOSTNAME:'127.0.0.1',PORT:process.env.PORT||'3000',BLISKO_DATA_DIR:path.resolve(process.env.BLISKO_DATA_DIR||path.join(root,'.data'))}});
+for(const signal of ['SIGINT','SIGTERM'])process.on(signal,()=>child.kill(signal));
+child.on('exit',code=>process.exit(code??1));
