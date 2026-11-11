@@ -24,19 +24,32 @@ The DB connection must own the tables or have an appropriate server RLS bypass r
 
 Set `ADMIN_EMAIL` to a controlled email before its first registration/sign-in. Local registration or the first confirmed Supabase login creates the server role. Existing profiles are not silently promoted by later environment changes: use a restricted, audited DB operation. Never accept roles from a client field.
 
-## Stripe — test mode only
+## Stripe (sandbox only)
 
-1. Set `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` for test mode. `sk_live_` keys are rejected.
-2. Create a test webhook destination at `https://YOUR-STAGING-HOST/api/stripe/webhook`. For local forwarding, follow Stripe’s documented webhook tooling and use that forwarder’s signing secret.
-3. Subscribe to `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired` and `charge.refunded`.
-4. Checkout builds prices/currency on the server from the package configuration. Stripe Price IDs are unnecessary. No specific payment methods, including BLIK, are promised or forced; availability depends on the actual account/currency configuration.
-5. Run the external checklist in `BEFORE-SALES.md`. A return URL never unlocks a gift. Check the order history after verified webhook delivery, then publish explicitly.
+Use standard Stripe-hosted Checkout in payment mode. The Stripe MCP implementation planner was called and accepted for WebsiteGift on 2026-11-11. Managed Payments and Connect are excluded.
 
-Checkout sessions last 30 minutes. Pending orders reuse their idempotency key and immutable price snapshot. Switching package while a checkout is pending is rejected to avoid charging a different offer; finish or wait for its expiry/webhook. Reconcile uncertain requests with Stripe before attempting a manual replacement order.
+Store a replacement test restricted key (`rk_test_`) or test secret key (`sk_test_`) in Heroku `STRIPE_SECRET_KEY`; no browser key is required for hosted redirects. Rotate any previously exposed secret in Stripe. Grant the restricted key the Checkout Session create/read, charge read and dispute read permissions needed by this integration, and verify those permissions in sandbox.
 
-Full or partial `charge.refunded` notifications conservatively revoke the order’s publication and entitlement. Confirm the final refund policy with the seller/legal adviser before live release. The app does not initiate refunds; use Stripe’s test dashboard during acceptance.
+Create a sandbox webhook endpoint at `https://websitegift-2df82156633c.herokuapp.com/api/stripe/webhook`, with the API version matching stripe-node 23.1.0. Store its signing secret in `STRIPE_WEBHOOK_SECRET`. Subscribe to:
 
-Service Checkout also requires `LEGAL_APPROVED=true` and all seller fields. This is a release gate, not proof of legal approval. Local mode permits Stripe test integration with labelled draft documents. Do not set the approval flag just to bypass legal work.
+- `checkout.session.completed`
+- `checkout.session.async_payment_succeeded`
+- `checkout.session.async_payment_failed`
+- `checkout.session.expired`
+- `charge.refunded`
+- `charge.dispute.created`
+- `charge.dispute.updated`
+- `charge.dispute.closed`
+
+Dynamic payment methods remain enabled. Manage Link and eligible payment methods in the sandbox Dashboard. Adaptive Pricing and automatic tax have not been enabled; confirm pricing, supported currencies and tax registrations before changing those features.
+
+Checkout uses Stripe's default session expiry (24 hours), allowing identical idempotent creation retries without a time-dependent `expires_at`. The application retrieves pending sessions before allowing another checkout: expired sessions release the pending order; completed asynchronous payments stay blocked until confirmation. An unknown creation result with no stored session after 23 hours requires manual reconciliation before another attempt.
+
+Partial refunds preserve hosting. A full refund permanently revokes publication and viewer sessions. Active/lost disputes suspend payment entitlement and unpublish the gift; a won/closed warning dispute restores the entitlement without extending hosting. The owner must publish again. Current Stripe objects are retrieved to avoid stale dispute/refund snapshots overriding the latest state. Unrelated merchant payments are ignored.
+
+The success redirect never fulfils orders. Signed webhooks and session reconciliation apply verified amounts/currency atomically. Payment state and email jobs commit together; retry email delivery using `npm run mail:retry`. Live keys/events remain rejected. Hosted checkout additionally requires actual seller details and `LEGAL_APPROVED=true` after review; do not use placeholders to bypass that gate.
+
+Before launch, complete a genuine sandbox Checkout and verify signed delivery, delayed payment success/failure, duplicate/reordered events, full/partial refunds and disputes. Local mocked Stripe tests do not establish provider acceptance.
 
 ## Transactional email
 
@@ -48,7 +61,7 @@ Retries reuse a persisted payload and idempotency key. Uncertain attempts near t
 
 ## Deploy
 
-Only build/deploy `platform/`. The supplied local Docker context can be built with:
+Only build/deploy `WebsiteGift/`. The supplied local Docker context can be built with:
 
 ```powershell
 docker build -t blisko-staging .

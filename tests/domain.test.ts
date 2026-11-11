@@ -20,7 +20,7 @@ const {
   publicGift,
   sharing,
 } = await import("../src/lib/service");
-const { applyPayment } = await import("../src/lib/payments");
+const { applyPayment, handleStripeEvent, sessionFact, stripe, checkout } = await import("../src/lib/payments");
 const { giftSchema, demoGift } = await import("../src/lib/schema");
 const { initialCatalog } = await import("../src/lib/config");
 const { passwordHash, passwordMatches, hash, rateLimit } =
@@ -483,6 +483,202 @@ test('original presentation settings and arbitrary letter counts survive schema 
 test('extra gallery and portrait media are owner-checked, with enforced file roles',async()=>{
  const p=await createProject(b,'film'),foreign=crypto.randomUUID();p.draft.sections[0].items[0].extraMediaIds=[foreign];await assert.rejects(()=>saveProject(b,p.id,p.draft,1),/does not belong/);p.draft.sections[0].items[0].extraMediaIds=[];p.draft.fromPortraitId=foreign;await assert.rejects(()=>saveProject(b,p.id,p.draft,1),/does not belong/);const id=crypto.randomUUID();await transaction(tx=>tx.run('INSERT INTO media(id,owner_id,project_id,storage_key,mime,bytes,created_at,state) VALUES(?,?,?,?,?,?,?,?)',[id,b.id,p.id,'fictional-portrait','image/webp',20,new Date().toISOString(),'ready']));p.draft.fromPortraitId=id;p.draft.musicId=id;await assert.rejects(()=>saveProject(b,p.id,p.draft,1),/audio file for music/);p.draft.musicId=null;await saveProject(b,p.id,p.draft,1);
 });
+test("expired pending checkout is reconciled before selecting a different package", async () => {
+  const p = await createProject(a, "film"),
+    id = crypto.randomUUID();
+  await transaction((tx) =>
+    tx.run(
+      "INSERT INTO orders(id,project_id,owner_id,email,plan,amount,currency,status,stripe_session,consent,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+      [
+        id,
+        p.id,
+        a.id,
+        a.email,
+        JSON.stringify(initialCatalog.plans[0]),
+        4900,
+        "pln",
+        "pending",
+        `cs-${id}`,
+        "{}",
+        new Date().toISOString(),
+      ],
+    ),
+  );
+  let status = "complete",
+    creates = 0;
+  const client = {
+    checkout: {
+      sessions: {
+        retrieve: async () => ({
+          id: `cs-${id}`,
+          metadata: { orderId: id },
+          status,
+          payment_status: "unpaid",
+        }),
+        create: async (params: Stripe.Checkout.SessionCreateParams) => {
+          creates++;
+          assert.equal(params.mode, "payment");
+          assert.equal("payment_method_types" in params, false);
+          return {
+            id: `cs-new-${id}`,
+            status: "open",
+            url: "https://checkout.stripe.com/fixture",
+          };
+        },
+      },
+    },
+  } as unknown as Stripe;
+  const consent = { terms: true, immediate: true, acknowledge: true };
+  await assert.rejects(
+    () => checkout(a, p.id, initialCatalog.plans[1].id, consent, client),
+    /processing/,
+  );
+  assert.equal(creates, 0);
+  status = "expired";
+  assert.equal(
+    await checkout(a, p.id, initialCatalog.plans[1].id, consent, client),
+    "https://checkout.stripe.com/fixture",
+  );
+  assert.equal(
+    (
+      await query<{ status: string }>("SELECT status FROM orders WHERE id=?", [
+        id,
+      ])
+    )[0].status,
+    "expired",
+  );
+  assert.equal(creates, 1);
+});
+
+test("Stripe test restricted keys work and live keys are rejected", () => {
+  const saved = process.env.STRIPE_SECRET_KEY;
+  try {
+    process.env.STRIPE_SECRET_KEY = "rk_test_fixture_only";
+    assert.ok(stripe());
+    process.env.STRIPE_SECRET_KEY = "rk_live_fixture_only";
+    assert.throws(() => stripe(), /Test payments need/);
+  } finally {
+    if (saved === undefined) delete process.env.STRIPE_SECRET_KEY;
+    else process.env.STRIPE_SECRET_KEY = saved;
+  }
+});
+
+test("completed asynchronous sessions stay pending until payment succeeds", () => {
+  const session = {
+    id: "cs_async",
+    metadata: { orderId: "order_async" },
+    status: "complete",
+    payment_status: "unpaid",
+    amount_total: 4900,
+    currency: "pln",
+  } as unknown as Stripe.Checkout.Session;
+  assert.equal(sessionFact(session, "evt_async").state, "pending");
+  assert.equal(sessionFact(session, "evt_failed", true).state, "failed");
+  session.payment_status = "paid";
+  assert.equal(sessionFact(session, "evt_paid", true).state, "paid");
+  session.payment_status = "unpaid";
+  session.status = "expired";
+  assert.equal(sessionFact(session, "evt_expired").state, "expired");
+});
+
+test("partial refunds preserve access; disputes revoke it and won disputes never extend hosting", async () => {
+  const p = await createProject(a, "film"),
+    id = crypto.randomUUID();
+  await transaction((tx) =>
+    tx.run(
+      "INSERT INTO orders(id,project_id,owner_id,email,plan,amount,currency,status,consent,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
+      [
+        id,
+        p.id,
+        a.id,
+        a.email,
+        JSON.stringify(initialCatalog.plans[0]),
+        4900,
+        "pln",
+        "pending",
+        "{}",
+        new Date().toISOString(),
+      ],
+    ),
+  );
+  await applyPayment({
+    eventId: `paid-${id}`,
+    orderId: id,
+    state: "paid",
+    amount: 4900,
+    currency: "pln",
+    paymentIntent: `pi-${id}`,
+  });
+  await publishProject(a, p.id);
+  const expires = (await projectFor(a, p.id)).expires_at;
+  let refunded = false,
+    disputeStatus = "needs_response";
+  const client = {
+    charges: {
+      retrieve: async () => ({
+        id: "ch_fixture",
+        refunded,
+        payment_intent: `pi-${id}`,
+      }),
+    },
+    disputes: {
+      retrieve: async () => ({ charge: "ch_fixture", status: disputeStatus }),
+    },
+    checkout: {
+      sessions: {
+        list: async () => ({
+          data: [
+            { metadata: { orderId: id }, amount_total: 4900, currency: "pln" },
+          ],
+        }),
+      },
+    },
+  } as unknown as Stripe;
+  const event = (eventId: string, type: string) =>
+    ({
+      id: eventId,
+      type,
+      livemode: false,
+      data: { object: { id: "fixture" } },
+    }) as unknown as Stripe.Event;
+  await handleStripeEvent(event(`partial-${id}`, "charge.refunded"), client);
+  assert.ok((await publicGift(p.token)).gift);
+  await handleStripeEvent(
+    event(`dispute-${id}`, "charge.dispute.created"),
+    client,
+  );
+  await assert.rejects(() => publicGift(p.token), /unavailable/);
+  await applyPayment({
+    eventId: `late-paid-${id}`,
+    orderId: id,
+    state: "paid",
+    amount: 4900,
+    currency: "pln",
+  });
+  assert.equal((await projectFor(a, p.id)).paid, false);
+  disputeStatus = "won";
+  await handleStripeEvent(event(`won-${id}`, "charge.dispute.closed"), client);
+  assert.equal((await projectFor(a, p.id)).paid, true);
+  assert.equal((await projectFor(a, p.id)).expires_at, expires);
+  // Publication requires an owner action again after a dispute.
+  await assert.rejects(() => publicGift(p.token), /unavailable/);
+  refunded = true;
+  await handleStripeEvent(event(`full-${id}`, "charge.refunded"), client);
+  await handleStripeEvent(
+    event(`late-won-${id}`, "charge.dispute.closed"),
+    client,
+  );
+  assert.equal((await projectFor(a, p.id)).paid, false);
+  await assert.rejects(
+    () =>
+      handleStripeEvent(
+        { ...event("live", "charge.refunded"), livemode: true },
+        client,
+      ),
+    /Live payment/,
+  );
+});
+
 after(() => {
   const state = (
     globalThis as unknown as { bliskoDb: { sqlite: { close: () => void } } }

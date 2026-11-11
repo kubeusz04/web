@@ -1,16 +1,16 @@
 # WebsiteGift
 
-Current handoff scope: **local demonstration**, as requested by the user. External provider acceptance and real sales are deferred. No public deployment or live payment is enabled.
+The application is deployed to Heroku for staging. **Live sales remain disabled.** Stripe sandbox provider acceptance, transactional email, and seller/legal review are still required.
 
 A runnable personalised digital gift platform. **English interface and demo content; PLN pricing.** The original anniversary gift and its approximately 1 GB of private media remain outside this application and its build/deployment context.
 
 The gift renderer now reuses the original film scene engine, photo finale, archive styles and Three.js sky engine. See [restoration notes](docs/RESTORATION.md) for editable settings, verified behavior and remaining fidelity gaps. The editor/storefront keep the platform interface.
 
-**Not cleared for real sales.** Local workflows have been tested. Real Stripe Checkout, hosted PostgreSQL/Supabase, transactional delivery and deployment still require provider configuration and staging acceptance. Live Stripe keys are deliberately rejected.
+**Not cleared for real sales.** Local workflows and mocked Stripe recovery/refund/dispute handling have been tested. Heroku and Supabase are configured; actual Stripe sandbox Checkout and transactional delivery still need provider configuration and acceptance. Live Stripe keys are deliberately rejected.
 
 ## Run locally
 
-Requires Node.js 24.12+ and npm. From `platform/`:
+Requires Node.js 24.12+ and npm. From `WebsiteGift/`:
 
 ```powershell
 npm ci
@@ -54,7 +54,7 @@ Paid-publication browser tests introduce a **synthetic payment fact from the tes
 
 ## Service setup and deployment
 
-See [setup](docs/SETUP.md), [operations/recovery](docs/OPERATIONS.md), [audit/architecture](docs/AUDIT.md), and [release blockers](docs/BEFORE-SALES.md). For a local production build, run `npm run build` then `npm start`. Deploy only `platform/`, never its parent folder or original `media/`.
+See [setup](docs/SETUP.md), [operations/recovery](docs/OPERATIONS.md), [audit/architecture](docs/AUDIT.md), and [release blockers](docs/BEFORE-SALES.md). For a local production build, run `npm run build` then `npm start`. Deploy only `WebsiteGift/`, never its parent folder or original `media/`.
 
 | Path | Responsibility |
 |---|---|

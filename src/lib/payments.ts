@@ -6,7 +6,7 @@ import { appUrl, brand } from "./config";
 import { legalVersion, termsText } from "./legal";
 export function stripe() {
   const key = process.env.STRIPE_SECRET_KEY;
-  if (!key?.startsWith("sk_test_"))
+  if (!key || !/^(sk|rk)_test_/.test(key))
     throw new AppError(
       "Test payments need Stripe configuration. You have not been charged.",
       503,
@@ -18,8 +18,8 @@ export async function checkout(
   id: string,
   planId: string,
   consent: { terms: boolean; immediate: boolean; acknowledge: boolean },
+  client = stripe(),
 ) {
-  const client = stripe();
   if (!consent.terms || !consent.immediate || !consent.acknowledge)
     throw new AppError("Please provide the required consents.");
   if (
@@ -34,12 +34,44 @@ export async function checkout(
       "Sales are blocked pending seller details and legal review.",
       503,
     );
+  // Reconcile known sessions before selecting an order. Never infer expiry from age:
+  // completed sessions can still be awaiting an asynchronous payment.
+  const pendingOrders = await query<{
+    id: string;
+    stripe_session: string | null;
+  }>(
+    "SELECT id,stripe_session FROM orders WHERE project_id=? AND owner_id=? AND status=?",
+    [id, user.id, "pending"],
+  );
+  for (const pending of pendingOrders) {
+    if (!pending.stripe_session) continue;
+    const current = await client.checkout.sessions.retrieve(
+      pending.stripe_session,
+    );
+    if (current.status === "expired" || current.payment_status === "paid")
+      await applyPayment(
+        sessionFact(
+          current,
+          `reconcile-${current.id}-${current.payment_status}-${current.status}`,
+        ),
+      );
+    else if (current.status === "complete")
+      throw new AppError(
+        "Your payment is processing. Wait for confirmation before trying again.",
+        409,
+      );
+  }
   const order = await transaction(async (tx) => {
     const p = await owned(tx, user, id, true);
-    const paid = await tx.all(
-      "SELECT id FROM orders WHERE project_id=? AND status=?",
-      [id, "paid"],
+    const paid = await tx.all<{ status: string }>(
+      "SELECT status FROM orders WHERE project_id=? AND status IN (?,?)",
+      [id, "paid", "disputed"],
     );
+    if (paid.some((order) => order.status === "disputed"))
+      throw new AppError(
+        "This payment is disputed. Contact support before trying another purchase.",
+        409,
+      );
     if (paid.length)
       throw new AppError("This gift is already paid. Continue to publication.");
     const c = await catalog(tx),
@@ -56,9 +88,19 @@ export async function checkout(
       [id, "pending"],
     );
     if (pending.length) {
+      // Stripe retains idempotency keys for at least 24 hours. An unknown result
+      // beyond that window needs reconciliation, never another blind charge.
+      if (
+        !pending[0].stripe_session &&
+        Date.now() - Date.parse(pending[0].created_at) > 23 * 3600000
+      )
+        throw new AppError(
+          "Checkout needs payment reconciliation. Please contact support before trying again.",
+          409,
+        );
       if (JSON.parse(pending[0].plan).id !== planId)
         throw new AppError(
-          "A checkout is already pending for another package. Complete it or wait for its 30-minute expiry.",
+          "A checkout is already pending for another package. Complete it or wait for its expiry.",
         );
       return {
         id: pending[0].id,
@@ -102,9 +144,13 @@ export async function checkout(
     : await client.checkout.sessions.create(
         {
           mode: "payment",
+          integration_identifier: "websitegift_checkout_qmtrbnyk",
           customer_email: user.email,
           client_reference_id: order.id,
           metadata: { orderId: order.id, projectId: id, userId: user.id },
+          payment_intent_data: {
+            metadata: { orderId: order.id, projectId: id, userId: user.id },
+          },
           line_items: [
             {
               price_data: {
@@ -117,7 +163,8 @@ export async function checkout(
           ],
           success_url: `${appUrl()}/dashboard?payment=return`,
           cancel_url: `${appUrl()}/editor/${id}?payment=canceled`,
-          expires_at: Math.floor(Date.parse(order.createdAt) / 1000) + 1800,
+          // Use Stripe's default expiry so retries reuse identical parameters
+          // even when the initial response was lost.
         },
         { idempotencyKey: `checkout-${order.id}` },
       );
@@ -127,6 +174,20 @@ export async function checkout(
       [session.id, order.id, session.id],
     ),
   );
+  if (session.status !== "open") {
+    await applyPayment(
+      sessionFact(
+        session,
+        `reconcile-${session.id}-${session.payment_status}-${session.status}`,
+      ),
+    );
+    throw new AppError(
+      session.payment_status === "paid"
+        ? "Payment confirmed. Continue to publication."
+        : "Your checkout has finished. Refresh to see its payment status.",
+      409,
+    );
+  }
   if (!session.url)
     throw new AppError(
       "This session has expired. Wait for the order status to update.",
@@ -139,7 +200,8 @@ export interface PaymentFact {
   orderId?: string;
   sessionId?: string;
   paymentIntent?: string;
-  state: "paid" | "failed" | "expired" | "refunded" | "pending";
+  state: "paid" | "failed" | "expired" | "refunded" | "pending" | "disputed";
+  disputeResolved?: boolean;
   amount?: number;
   currency?: string;
 }
@@ -192,9 +254,13 @@ export async function applyPayment(fact: PaymentFact) {
       ? "refunded"
       : fact.state === "refunded"
         ? "refunded"
-        : order.status === "paid"
-          ? "paid"
-          : fact.state;
+        : order.status === "disputed" && !fact.disputeResolved
+          ? "disputed"
+          : fact.state === "disputed"
+            ? "disputed"
+            : order.status === "paid"
+              ? "paid"
+              : fact.state;
     await tx.run(
       "UPDATE orders SET status=?,payment_intent=COALESCE(?,payment_intent),stripe_session=COALESCE(stripe_session,?),paid_at=COALESCE(paid_at,?) WHERE id=?",
       [
@@ -207,16 +273,21 @@ export async function applyPayment(fact: PaymentFact) {
     );
     if (state === "paid" && order.status !== "paid" && order.project_id) {
       const plan = JSON.parse(order.plan);
-      await tx.run("UPDATE projects SET expires_at=? WHERE id=?", [
-        new Date(Date.now() + plan.days * 86400000).toISOString(),
-        order.project_id,
-      ]);
+      if (!order.paid_at)
+        await tx.run("UPDATE projects SET expires_at=? WHERE id=?", [
+          new Date(Date.now() + plan.days * 86400000).toISOString(),
+          order.project_id,
+        ]);
+      await tx.run(
+        "UPDATE email_jobs SET status=? WHERE order_id=? AND status=?",
+        ["pending", order.id, "canceled"],
+      );
       await tx.run(
         "INSERT INTO email_jobs(id,order_id,status,next_at) VALUES(?,?,?,?) ON CONFLICT(order_id) DO NOTHING",
         [crypto.randomUUID(), order.id, "pending", new Date().toISOString()],
       );
     }
-    if (state === "refunded") {
+    if (state === "refunded" || state === "disputed") {
       await tx.run(
         "UPDATE email_jobs SET status=? WHERE order_id=? AND status<>?",
         ["canceled", order.id, "sent"],
@@ -233,51 +304,99 @@ export async function applyPayment(fact: PaymentFact) {
     return { duplicate: false, state };
   });
 }
-export async function handleStripeEvent(event: Stripe.Event) {
-  const client = stripe();
-  if (event.type.startsWith("checkout.session.")) {
-    const s = event.data.object as Stripe.Checkout.Session;
-    if (!s.metadata?.orderId) return;
-    const current = await client.checkout.sessions.retrieve(s.id);
-    const state =
+export function sessionFact(
+  current: Stripe.Checkout.Session,
+  eventId: string,
+  failed = false,
+): PaymentFact {
+  return {
+    eventId,
+    orderId: current.metadata?.orderId,
+    sessionId: current.id,
+    paymentIntent:
+      typeof current.payment_intent === "string"
+        ? current.payment_intent
+        : current.payment_intent?.id,
+    state:
       current.payment_status === "paid"
         ? "paid"
-        : event.type === "checkout.session.async_payment_failed"
+        : failed
           ? "failed"
           : current.status === "expired"
             ? "expired"
-            : "pending";
-    return applyPayment({
-      eventId: event.id,
-      orderId: current.metadata?.orderId,
-      sessionId: current.id,
-      paymentIntent:
-        typeof current.payment_intent === "string"
-          ? current.payment_intent
-          : undefined,
-      state,
-      amount: current.amount_total ?? undefined,
-      currency: current.currency ?? undefined,
-    });
+            : "pending",
+    amount: current.amount_total ?? undefined,
+    currency: current.currency ?? undefined,
+  };
+}
+export async function handleStripeEvent(
+  event: Stripe.Event,
+  client = stripe(),
+) {
+  if (event.livemode)
+    throw new AppError("Live payment events are disabled.", 400);
+  if (
+    [
+      "checkout.session.completed",
+      "checkout.session.async_payment_succeeded",
+      "checkout.session.async_payment_failed",
+      "checkout.session.expired",
+    ].includes(event.type)
+  ) {
+    const s = event.data.object as Stripe.Checkout.Session;
+    if (!s.metadata?.orderId) return;
+    const current = await client.checkout.sessions.retrieve(s.id);
+    return applyPayment(
+      sessionFact(
+        current,
+        event.id,
+        event.type === "checkout.session.async_payment_failed",
+      ),
+    );
   }
-  if (event.type === "charge.refunded") {
-    const charge = event.data.object as Stripe.Charge;
+  if (
+    event.type === "charge.refunded" ||
+    event.type.startsWith("charge.dispute.")
+  ) {
+    let charge: Stripe.Charge;
+    let resolved = false;
+    if (event.type === "charge.refunded") {
+      charge = await client.charges.retrieve(
+        (event.data.object as Stripe.Charge).id,
+      );
+      // charge.refunded fires for partial refunds too. Only a full refund revokes hosting.
+      if (!charge.refunded) return;
+    } else {
+      const dispute = await client.disputes.retrieve(
+        (event.data.object as Stripe.Dispute).id,
+      );
+      resolved =
+        dispute.status === "won" || dispute.status === "warning_closed";
+      charge = await client.charges.retrieve(
+        typeof dispute.charge === "string" ? dispute.charge : dispute.charge.id,
+      );
+    }
     const pi =
       typeof charge.payment_intent === "string"
         ? charge.payment_intent
         : charge.payment_intent?.id;
-    if (pi) {
-      const sessions = await client.checkout.sessions.list({
-        payment_intent: pi,
-        limit: 1,
-      });
-      return applyPayment({
-        eventId: event.id,
-        paymentIntent: pi,
-        orderId: sessions.data[0]?.metadata?.orderId,
-        state: "refunded",
-      });
-    }
+    if (!pi) return;
+    const sessions = await client.checkout.sessions.list({
+      payment_intent: pi,
+      limit: 1,
+    });
+    const session = sessions.data[0];
+    // Ignore other Stripe sales belonging to the same merchant.
+    if (!session?.metadata?.orderId) return;
+    return applyPayment({
+      eventId: event.id,
+      paymentIntent: pi,
+      orderId: session.metadata.orderId,
+      state: charge.refunded ? "refunded" : resolved ? "paid" : "disputed",
+      disputeResolved: resolved,
+      amount: session.amount_total ?? undefined,
+      currency: session.currency ?? undefined,
+    });
   }
 }
 export { retryEmails } from "./mail";

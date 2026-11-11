@@ -92,7 +92,7 @@ async function route(
         catalog: await catalog(),
         local: localMode(),
         paymentsConfigured:
-          !!process.env.STRIPE_SECRET_KEY?.startsWith("sk_test_"),
+          /^(sk|rk)_test_/.test(process.env.STRIPE_SECRET_KEY || ""),
       });
     if (p[0] === "auth") {
       if (p[1] === "me" && method === "GET")
