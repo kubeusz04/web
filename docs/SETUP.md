@@ -1,5 +1,13 @@
 # Service configuration
 
+## Heroku
+
+The `websitegift` Heroku app is connected to `kubeusz04/web` on `main` using the official Node.js buildpack. `Procfile` runs `npm start`. The launcher binds to `0.0.0.0` on Heroku and uses its assigned `PORT`.
+
+Set `APP_MODE=service` and `APP_URL` to the HTTPS application origin. Configure the Supabase variables below. Use the session pooler on IPv4, with `sslmode=verify-full`, and set `NODE_EXTRA_CA_CERTS=/app/certs/supabase-ca.crt` so Node trusts Supabase's official database CA. The certificate is public and bundled in the repository. Secrets belong in Heroku Config Vars.
+
+Deploy manually from the Heroku Deploy tab after pushing a verified commit. Check the actual student-credit allocation and monthly usage in Heroku Billing. Basic web compute is chargeable and consumes eligible credits.
+
 Use separate staging projects. Store credentials in server environment variables or `.env.local`, never `NEXT_PUBLIC_*`. Do not paste or commit secrets.
 
 ## PostgreSQL / Supabase
