@@ -250,18 +250,9 @@ export default function OriginalExperience({
                     <p className="intro">{gift.dedication}</p>
                   </header>
                   <section className="holiday-list" aria-label="Your gift">
-                    {sections.map((s) => (
+                    {sections.map((s, index) => (
                       <button className="holiday-row" key={s.id} onClick={() => setActive(s.id)}>
-                        <span className="holiday-emoji" aria-hidden="true">
-                          {
-                            {
-                              film: "🎬",
-                              archive: "💌",
-                              cosmos: "✦",
-                              surprise: "🪄",
-                            }[s.type]
-                          }
-                        </span>
+                        <span className="holiday-number" aria-hidden="true">{String(index + 1).padStart(2,"0")}</span>
                         <div className="holiday-copy">
                           <h2>{s.title}</h2>
                           <p>{s.subtitle || s.introduction}</p>

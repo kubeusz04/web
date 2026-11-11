@@ -27,9 +27,9 @@ export function applyAppearance(doc: Document, gift: Gift, section?: GiftSection
   if(!appearance.accent && gift.theme==='rose')set(['--pink'],'#fba0b5');
   set(['--sea','--green'],colours.secondary);
   set(['--gold','--pink-soft'],colours.highlight);
-  set(['--gift-background', menu ? '--cream' : '--ink'],appearance.background);
+  set(['--gift-background', '--ink'],appearance.background);
   if(appearance.background)set(['--ink-2'],appearance.background);
-  set(['--gift-text', menu ? '--ink' : '--cream'],appearance.text);
+  set(['--gift-text', '--cream'],appearance.text);
   if(appearance.text){
     set(['--fade','--ink-soft'],appearance.text+'b3');
     set(['--faint'],appearance.text+'80');
