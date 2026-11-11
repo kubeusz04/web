@@ -490,7 +490,7 @@ export default function Editor({ id }: { id: string }) {
                     }
                   />
                 </Field>
-                <SectionSettings section={section} onChange={change=>mutateSection(s=>({...s,...change}))}/>
+                <SectionSettings normal={draft.relationshipMode === "normal"} section={section} onChange={change=>mutateSection(s=>({...s,...change}))}/>
                 <div className="item-list">
                   {section.items.map((s, i) => (
                     <button
@@ -612,7 +612,7 @@ export default function Editor({ id }: { id: string }) {
                         </Field>
                         <Field label="Category">
                           <select
-                            value={item.category}
+                            value={draft.relationshipMode === "normal" && ["letter", "list"].includes(item.category.toLowerCase()) ? "Moment" : item.category}
                             onChange={(e) =>
                               mutateItem({ category: e.target.value })
                             }
@@ -620,11 +620,11 @@ export default function Editor({ id }: { id: string }) {
                             {[
                               ...new Set([
                                 "Memory",
-                                "Letter",
+                                ...(draft.relationshipMode === "normal" ? ["Moment", "Date"] : ["Letter"]),
                                 "Reason",
                                 "Gallery",
                                 "Message", "Joke",
-                                item.category,
+                                ...(draft.relationshipMode === "normal" && ["letter", "list"].includes(item.category.toLowerCase()) ? [] : [item.category]),
                               ]),
                             ].map((c) => (
                               <option key={c}>{c}</option>
@@ -633,7 +633,7 @@ export default function Editor({ id }: { id: string }) {
                         </Field>
                       </>
                     )}
-                    <ItemSettings item={item} type={section.type} files={files} onChange={mutateItem}/>
+                    <ItemSettings normal={draft.relationshipMode === "normal"} item={item} type={section.type} files={files} onChange={mutateItem}/>
                     {section.type === "cosmos" ? (
                       <Field label="Object type">
                         <select

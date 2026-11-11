@@ -184,6 +184,7 @@ export default function OriginalFilm({
         : item.mediaId || demo
           ? "solo"
           : "title");
+    if (gift.relationshipMode === "normal" && type === "letter") type = indices.length ? "split" : "lines";
     if (
       [
         "solo",
@@ -329,7 +330,7 @@ export default function OriginalFilm({
             <button
               className="seal"
               onClick={() => setOpened(true)}
-              aria-label="Open the letter and begin"
+              aria-label={gift.relationshipMode === "normal" ? "Begin our story" : "Open the letter and begin"}
             >
               <span className="seal__ring" />
               <span className="seal__wax">

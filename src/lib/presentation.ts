@@ -10,6 +10,12 @@ export function archiveStatistics(gift:Gift,section:GiftSection){
  const items=section.items.filter(item=>!item.hidden);
  const letters=items.filter(item=>['letter','list'].includes(item.category.toLowerCase()));
  const photos=new Set(items.flatMap(item=>[...(item.mediaId&&item.mediaKind==='image'?[item.mediaId]:[]),...(item.extraMediaIds||[])]));
+ if(gift.relationshipMode==='normal')return [
+  {value:String(items.filter(item=>['letter','list','moment','date','shared moment'].includes(item.category.toLowerCase())).length),label:'shared moments'},
+  {value:String(items.filter(item=>item.category.toLowerCase()==='date').length),label:'dates to remember'},
+  {value:days(gift.firstMetDate,gift.date),label:'days together'},
+  {value:String(photos.size),label:'photographs'},
+ ];
  return [
   {value:String(letters.length),label:'letters'},
   {value:String(letters.reduce((sum,item)=>sum+item.body.trim().split(/\s+/).filter(Boolean).length,0)),label:'words written'},

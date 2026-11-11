@@ -15,3 +15,14 @@ test('custom archive statistics preserve literal text and can be removed entirel
  const saved=giftSchema.parse(gift);assert.deepEqual(archiveStatistics(saved,saved.sections[0]),gift.sections[0].statistics);
  saved.sections[0].statistics=[];assert.deepEqual(archiveStatistics(saved,saved.sections[0]),[]);
 });
+
+test('normal mode preserves content and replaces distance statistics with everyday memories',()=>{
+ const gift=demoGift('archive');gift.relationshipMode='normal';gift.firstMetDate='2024-01-01';gift.date='2024-01-11';
+ gift.sections[0].items=[{...blankItem(),category:'Letter',body:'Keep these words'},{...blankItem(),category:'Date'},{...blankItem(),category:'Moment',hidden:true}];
+ const saved=giftSchema.parse(gift),stats=archiveStatistics(saved,saved.sections[0]);
+ assert.equal(saved.relationshipMode,'normal');assert.equal(saved.sections[0].items[0].body,'Keep these words');
+ assert.deepEqual(stats.slice(0,3),[{value:'2',label:'shared moments'},{value:'1',label:'dates to remember'},{value:'10',label:'days together'}]);
+ assert.ok(stats.every(stat=>!/(letter|wait)/i.test(stat.label)));
+ saved.relationshipMode='ldr';assert.equal(archiveStatistics(saved,saved.sections[0])[0].label,'letters');
+ delete saved.relationshipMode;assert.equal(archiveStatistics(giftSchema.parse(saved),saved.sections[0])[0].label,'letters');
+});

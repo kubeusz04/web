@@ -25,6 +25,8 @@ export default function OriginalArchive({
   demo: boolean;
   win: Window;
 }) {
+  const normal = gift.relationshipMode === "normal";
+  const momentCategories = normal ? ["letter", "moment", "date", "shared moment"] : ["letter"];
   const revealEnabled=section.revealEnabled!==false;
   const [gate, setGate] = useState(true),
     [revealing, setRevealing] = useState(false),
@@ -35,7 +37,7 @@ export default function OriginalArchive({
   const close = useRef<HTMLButtonElement>(null),
     lastFocus = useRef<HTMLElement | null>(null);
   const visible = section.items.filter((i) => !i.hidden),
-    letters = visible.filter((i) => category(i) === "letter"),
+    letters = visible.filter((i) => momentCategories.includes(category(i))),
     reasons = visible.filter((i) => category(i) === "reason"),
     jokes = visible.filter((i) =>
       ["joke", "inside joke"].includes(category(i)),
@@ -43,13 +45,13 @@ export default function OriginalArchive({
     gallery = visible.filter((i) => category(i) === "gallery"),
     timeline = visible.filter(
       (i) =>
-        !["letter", "reason", "joke", "inside joke", "gallery"].includes(
+        ![...momentCategories, "reason", "joke", "inside joke", "gallery"].includes(
           category(i),
         ),
     );
   const labels = {
     timeline: "How it actually began",
-    letters: `${letters.length} ${letters.length === 1 ? 'letter' : 'letters'}`,
+    letters: `${letters.length} ${normal ? (letters.length === 1 ? 'shared moment' : 'shared moments') : (letters.length === 1 ? 'letter' : 'letters')}`,
     reasons: `${reasons.length} ${reasons.length === 1 ? 'reason' : 'reasons'}`,
     jokes: "Inside jokes",
     gallery: "Every single one",
@@ -115,7 +117,7 @@ export default function OriginalArchive({
         <ul id="navList">
           {[
             [timeline, "beginning", "Start"],
-            [letters, "letters", "Letters"],
+            [letters, "letters", normal ? "Moments" : "Letters"],
             [reasons, "reasons", "Reasons"],
             [jokes, "inside", "Jokes"],
             [gallery, "photos", "Photos"],
@@ -209,7 +211,7 @@ export default function OriginalArchive({
               className="lede"
               style={{ textAlign: "center", margin: "0 auto 40px" }}
             >
-              {letters.length} personal letters. Every word, yours.
+              {normal ? `${letters.length} shared moments. Dates, little rituals and memories worth keeping.` : `${letters.length} personal letters. Every word, yours.`}
             </p>
             <div className="letters">
               {letters.map((l, i) => (
@@ -227,9 +229,9 @@ export default function OriginalArchive({
                   <p className="lt__note">{l.subtitle || l.date}</p>
                   <div className="lt__foot">
                     <span>
-                      {l.body.trim().split(/\s+/).filter(Boolean).length} words
+                      {normal ? l.date || "Together" : `${l.body.trim().split(/\s+/).filter(Boolean).length} words`}
                     </span>
-                    <span className="lt__open">Read</span>
+                    <span className="lt__open">{normal ? "Revisit" : "Read"}</span>
                   </div>
                 </button>
               ))}
@@ -404,7 +406,7 @@ export default function OriginalArchive({
           <button
             ref={close}
             className="reader__close"
-            aria-label="Close letter"
+            aria-label={normal ? "Close memory" : "Close letter"}
             onClick={() => setReader(null)}
           >
             ×
@@ -413,7 +415,7 @@ export default function OriginalArchive({
             <>
               <button
                 className="reader__nav reader__nav--prev"
-                aria-label="Previous letter"
+                aria-label={normal ? "Previous memory" : "Previous letter"}
                 disabled={letters.indexOf(reader) === 0}
                 onClick={() => setReader(letters[letters.indexOf(reader) - 1])}
               >
@@ -421,7 +423,7 @@ export default function OriginalArchive({
               </button>
               <button
                 className="reader__nav reader__nav--next"
-                aria-label="Next letter"
+                aria-label={normal ? "Next memory" : "Next letter"}
                 disabled={letters.indexOf(reader) === letters.length - 1}
                 onClick={() => setReader(letters[letters.indexOf(reader) + 1])}
               >

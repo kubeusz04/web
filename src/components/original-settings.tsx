@@ -55,6 +55,13 @@ export function GiftSettings({
   return (
     <div className="original-settings">
       <h3>Original presentation</h3>
+      <Field label="Relationship style">
+        <select value={gift.relationshipMode || "ldr"} onChange={event => onChange({relationshipMode: event.target.value as "ldr" | "normal"})}>
+          <option value="ldr">LDR — long-distance relationship</option>
+          <option value="normal">Normal — everyday life together</option>
+        </select>
+      </Field>
+      <p className="small muted">LDR includes letters and time apart. Normal celebrates dates, shared moments and everyday life together.</p>
       <Field label="Subtitle / translation">
         <textarea
           value={gift.subtitle || ""}
@@ -86,7 +93,7 @@ export function GiftSettings({
           />
         </Field>
       </div>
-      <Field label="First letter / first message date"><input type="date" value={gift.firstLetterDate||''} onChange={e=>onChange({firstLetterDate:e.target.value})}/></Field>
+      <Field label={gift.relationshipMode === 'normal' ? 'First message date' : 'First letter / first message date'}><input type="date" value={gift.firstLetterDate||''} onChange={e=>onChange({firstLetterDate:e.target.value})}/></Field>
       <Field label="First meeting date">
         <input
           type="date"
@@ -125,9 +132,11 @@ export function GiftSettings({
 export function SectionSettings({
   section,
   onChange,
+  normal = false,
 }: {
   section: GiftSection;
   onChange: (change: Partial<GiftSection>) => void;
+  normal?: boolean;
 }) {
   return (
     <details className="original-settings">
@@ -167,7 +176,7 @@ export function SectionSettings({
           <label className="check-label"><input type="checkbox" checked={section.revealEnabled??true} onChange={e=>onChange({revealEnabled:e.target.checked})}/>Enable the reveal effect</label>
           <p className="small muted">Turn off to open the archive immediately, without the introduction or scratch layer.</p>
           <details><summary>Archive statistics</summary>
-            <label className="check-label"><input type="checkbox" checked={section.statistics===undefined} onChange={e=>onChange({statistics:e.target.checked?undefined:[{label:'Our story in numbers',value:'1'}]})}/>Calculate statistics from my letters, dates and photographs</label>
+            <label className="check-label"><input type="checkbox" checked={section.statistics===undefined} onChange={e=>onChange({statistics:e.target.checked?undefined:[{label:'Our story in numbers',value:'1'}]})}/>{normal ? 'Calculate statistics from my moments, dates and photographs' : 'Calculate statistics from my letters, dates and photographs'}</label>
             {section.statistics?.map((statistic,index)=><div className="detail-row" key={index}>
               <Field label={`Statistic ${index+1} value`}><input maxLength={160} value={statistic.value} onChange={e=>onChange({statistics:section.statistics!.map((old,n)=>n===index?{...old,value:e.target.value}:old)})}/></Field>
               <Field label={`Statistic ${index+1} label`}><input maxLength={300} value={statistic.label} onChange={e=>onChange({statistics:section.statistics!.map((old,n)=>n===index?{...old,label:e.target.value}:old)})}/></Field>
@@ -180,7 +189,7 @@ export function SectionSettings({
             ["timeline", "letters", "reasons", "jokes", "gallery"] as const
           ).map((key) => (
             <Field
-              label={`Heading · ${key}`}
+              label={`Heading · ${normal && key === 'letters' ? 'moments' : key}`}
               key={key}
               hint="Leave empty to calculate counts from your content."
             >
@@ -232,11 +241,13 @@ const sceneNames: Record<string, string> = {
 };
 export function ItemSettings({
   item,
+  normal = false,
   type,
   files,
   onChange,
 }: {
   item: GiftItem;
+  normal?: boolean;
   type: GiftSection["type"];
   files: Media[];
   onChange: (change: Partial<GiftItem>) => void;
@@ -248,7 +259,7 @@ export function ItemSettings({
       {type === "film" ? (
         <Field label="Scene composition">
           <select
-            value={item.sceneType || ""}
+            value={normal && item.sceneType === "letter" ? "lines" : item.sceneType || ""}
             onChange={(e) =>
               onChange({
                 sceneType: e.target.value
@@ -258,7 +269,7 @@ export function ItemSettings({
             }
           >
             <option value="">Automatic from media</option>
-            {sceneTypes.map((s) => (
+            {sceneTypes.filter(s => !normal || s !== "letter").map((s) => (
               <option key={s} value={s}>
                 {sceneNames[s]}
               </option>

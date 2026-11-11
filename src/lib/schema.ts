@@ -88,6 +88,7 @@ export const giftSchema = z
     title: text(120).min(1),
     from: text(80),
     to: text(80),
+    relationshipMode: z.enum(["ldr", "normal"]).optional(),
     occasion: z.enum(["rocznica", "urodziny", "walentynki", "inna"]),
     date: text(40),
     locale: z.literal("en"),

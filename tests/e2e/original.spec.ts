@@ -113,3 +113,17 @@ test('archive reveal can be disabled, saved and published, and toggled while the
  await expect(f.getByRole('button',{name:'Start again',exact:true})).toHaveCount(0);
 });
 
+
+test('relationship style saves normal moments and switches back to LDR without losing content',async({page,context})=>{
+ await account(context.request);const p=await (await post(context.request,'/api/projects',{type:'archive'})).json();
+ const draft=demoGift('archive');draft.sections[0].revealEnabled=false;await save(context.request,p.id,draft);
+ await page.goto(`/editor/${p.id}`);await page.getByRole('button',{name:'01 The basics'}).click();
+ const mode=page.getByLabel('Relationship style',{exact:true});await mode.selectOption('normal');const f=frame(page);
+ await expect(f.getByRole('heading',{name:'1 shared moment',exact:true})).toBeVisible();
+ await expect(f.locator('.sec__lede').filter({hasText:'personal letters'})).toHaveCount(0);
+ await expect(f.locator('.stats')).not.toContainText('days we waited');
+ await expect.poll(async()=>((await (await context.request.get(`/api/projects/${p.id}`)).json()).project.draft.relationshipMode)).toBe('normal');
+ await page.reload();await page.getByRole('button',{name:'01 The basics'}).click();await expect(mode).toHaveValue('normal');
+ await mode.selectOption('ldr');await expect(f.getByRole('heading',{name:'1 letter',exact:true})).toBeVisible();
+ await expect.poll(async()=>((await (await context.request.get(`/api/projects/${p.id}`)).json()).project.draft.sections[0].items.length)).toBe(3);
+});
