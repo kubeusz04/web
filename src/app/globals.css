@@ -3427,3 +3427,7 @@ td .text-link {
   }
 }
 .original-demo-notice{height:30px;padding:7px 14px;display:flex;align-items:center;justify-content:center;gap:20px;background:#fff7f2;color:#94707f;font:11px/1.2 system-ui,sans-serif;box-sizing:border-box}.original-demo-notice a{color:#b04163;text-decoration:underline}.original-demo-page .original-gift-frame{height:calc(100dvh - 30px);min-height:calc(100dvh - 30px)}@media(max-width:420px){.original-demo-notice{font-size:9px;gap:12px}}
+
+.appearance-colours{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px;margin:20px 0}.appearance-colour{padding:14px;border:1px solid #d9d1c5;border-radius:12px;display:flex;flex-direction:column;gap:8px}.appearance-colour input[type=color]{width:100%;height:44px;cursor:pointer;padding:3px}.appearance-colour .field{margin:0}.appearance-sample{border:1px solid;border-radius:14px;padding:24px;margin:20px 0}.appearance-sample strong{font-size:36px;font-weight:500;line-height:1.2}.appearance-sample p{font-size:16px;line-height:1.7;margin-bottom:0}
+
+@font-face{font-family:'Cormorant Garamond';src:url('/original/fonts/cormorant-garamond-latin-400-normal.woff2') format('woff2');font-weight:400;font-display:swap}@font-face{font-family:Caveat;src:url('/original/fonts/caveat-latin-500-normal.woff2') format('woff2');font-weight:500;font-display:swap}@font-face{font-family:Fredoka;src:url('/original/fonts/fredoka.ttf') format('truetype');font-weight:500 700;font-display:swap}

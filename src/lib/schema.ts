@@ -59,7 +59,18 @@ export const itemSchema = z.object({
     .optional(),
   planetRadius: z.number().min(0.2).max(3).optional(),
 });
+export const appearanceSchema = z.object({
+  background: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  text: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  accent: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  secondary: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  highlight: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  headingFont: z.enum(["editorial", "modern", "handwritten", "classic", "playful", "mono"]).optional(),
+  bodyFont: z.enum(["editorial", "modern", "handwritten", "classic", "playful", "mono"]).optional(),
+});
+export type Appearance = z.infer<typeof appearanceSchema>;
 export const sectionSchema = z.object({
+  appearance: appearanceSchema.optional(),
   id: z.string().uuid(),
   type: z.enum(["film", "archive", "cosmos", "surprise"]),
   title: text(120),
@@ -97,6 +108,7 @@ export const giftSchema = z
   finaleWords:z.array(text(300)).max(4).optional(),
     theme: z.enum(["clay", "rose", "forest"]),
     font: z.enum(["editorial", "modern"]),
+    appearance: appearanceSchema.optional(),
     subtitle: text(500).optional(),
     fromLocation: text(160).optional(),
     toLocation: text(160).optional(),

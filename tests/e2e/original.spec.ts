@@ -127,3 +127,31 @@ test('relationship style saves normal moments and switches back to LDR without l
  await mode.selectOption('ldr');await expect(f.getByRole('heading',{name:'1 letter',exact:true})).toBeVisible();
  await expect.poll(async()=>((await (await context.request.get(`/api/projects/${p.id}`)).json()).project.draft.sections[0].items.length)).toBe(3);
 });
+
+test('custom colours and fonts render, persist, and allow independent page overrides and resets',async({page,context})=>{
+ await account(context.request);const p=await (await post(context.request,'/api/projects',{type:'archive'})).json();const draft=demoGift('archive');draft.sections[0].revealEnabled=false;await save(context.request,p.id,draft);
+ await page.goto(`/editor/${p.id}`);await page.getByRole('button',{name:/^03 /}).click();
+ await page.getByLabel('Heading font',{exact:true}).selectOption('handwritten');await page.getByLabel('Body font',{exact:true}).selectOption('mono');
+ await page.getByLabel('Background colour',{exact:true}).fill('#102030');await page.getByLabel('Text colour',{exact:true}).fill('#fafafa');await page.getByLabel('Main accent colour',{exact:true}).fill('#12abef');
+ const f=frame(page);await expect(f.locator('body')).toHaveCSS('background-color','rgb(16, 32, 48)');await expect(f.locator('.hero__title')).toHaveCSS('font-family',/Caveat/);
+ await expect.poll(async()=>((await (await context.request.get(`/api/projects/${p.id}`)).json()).project.draft.appearance?.accent)).toBe('#12abef');
+ await page.getByRole('button',{name:/^02 /}).click();await page.getByText('Page colours and fonts',{exact:true}).click();
+ await page.getByLabel('Main accent colour',{exact:true}).fill('#dd33aa');await page.getByLabel('Heading font',{exact:true}).selectOption('classic');
+ await expect(f.locator('.hero__title')).toHaveCSS('font-family',/Georgia/);await expect.poll(()=>f.locator('html').evaluate(node=>getComputedStyle(node).getPropertyValue('--rose').trim())).toBe('#dd33aa');
+ await expect(page.locator('.save-status')).toHaveText('Saved');await page.reload();await expect(f.locator('.hero__title')).toHaveCSS('font-family',/Georgia/);await expect(f.locator('body')).toHaveCSS('background-color','rgb(16, 32, 48)');
+ await page.getByText('Page colours and fonts',{exact:true}).click();await page.getByRole('button',{name:'Reset page to gift style',exact:true}).click();await expect(f.locator('.hero__title')).toHaveCSS('font-family',/Caveat/);
+ await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(evidence,'websitegift-custom-style-mobile.png'),fullPage:true});
+});
+
+test('gift styling reaches every page and the nested universe without leaking page overrides',async({page,context})=>{
+ await account(context.request);const p=await (await post(context.request,'/api/projects',{type:'film'})).json();const gift=demoGift('film');
+ gift.appearance={background:'#102030',text:'#fafafa',accent:'#123abc',headingFont:'classic',bodyFont:'mono'};
+ gift.sections=['film','archive','cosmos','surprise'].map(type=>demoGift(type as 'film'|'archive'|'cosmos'|'surprise').sections[0]);gift.sections[1].revealEnabled=false;gift.sections[0].appearance={background:'#301020'};await save(context.request,p.id,gift);
+ await page.goto(`/editor/${p.id}`);const f=frame(page);await expect(f.locator('body')).toHaveCSS('background-color','rgb(16, 32, 48)');
+ for(let index=0;index<4;index++){
+  await f.locator('.holiday-row').nth(index).click();await expect(f.locator('body')).toHaveCSS('background-color',index===0?'rgb(48, 16, 32)':'rgb(16, 32, 48)');
+  await expect.poll(()=>f.locator('html').evaluate(node=>getComputedStyle(node).getPropertyValue('--serif'))).toContain('Georgia');
+  if(index===2){const sky=f.frameLocator('iframe');await expect(sky.locator('body')).toHaveCSS('background-color','rgb(16, 32, 48)');await expect.poll(()=>sky.locator('html').evaluate(node=>getComputedStyle(node).getPropertyValue('--pink'))).toBe('#123abc');await expect.poll(()=>sky.locator('html').evaluate(node=>getComputedStyle(node).getPropertyValue('--serif'))).toContain('Georgia');}
+  await f.locator('.original-home').click();
+ }
+});

@@ -26,3 +26,12 @@ html,body{min-height:100%;scrollbar-width:thin}#gift-root{min-height:100%}.origi
 @font-face{font-family:'Inter';font-style:normal;font-weight:400;src:url('/original/fonts/inter-latin-400-normal.woff2') format('woff2');font-display:swap}
 @font-face{font-family:'Inter';font-style:normal;font-weight:500;src:url('/original/fonts/inter-latin-500-normal.woff2') format('woff2');font-display:swap}
 .original-surprise .duet-controls{grid-column:1/-1;text-align:center;color:var(--faint);font:11px var(--sans)}.original-surprise .duet-controls summary{cursor:pointer}.original-surprise .duet-controls label{display:inline-grid;gap:8px;max-width:45%;margin:15px 5px 0}.original-surprise .duet-controls audio{max-width:100%}
+
+/* Customer colours and typography shared by every presentation. */
+html[data-custom-heading] .gift-menu :is(h1,h2,h3,.brand,.signoff){font-family:var(--serif)!important}
+html[data-custom-body] .gift-menu{font-family:var(--sans)!important}
+html[data-custom-body] :is(.paper__body,.tl__body,.lt__note,.reward-body,.lede,.sky-intro__body,.panel__body){font-family:var(--sans)}
+body{background:var(--gift-background);color:var(--gift-text)}
+.archive-gate,.sky-intro,.original-surprise .panel{background-color:var(--gift-background)}
+.original-switch button,.original-home,.original-audio,.scene-selector,.accessible-memories{color:var(--gift-text);background-color:var(--gift-background)}
+@font-face{font-family:Fredoka;src:url('/original/fonts/fredoka.ttf') format('truetype');font-weight:500 700;font-display:swap}

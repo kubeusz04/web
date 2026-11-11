@@ -26,3 +26,13 @@ test('normal mode preserves content and replaces distance statistics with everyd
  saved.relationshipMode='ldr';assert.equal(archiveStatistics(saved,saved.sections[0])[0].label,'letters');
  delete saved.relationshipMode;assert.equal(archiveStatistics(giftSchema.parse(saved),saved.sections[0])[0].label,'letters');
 });
+
+test('appearance validates colour and font choices and merges individual page overrides',async()=>{
+ const {resolvedAppearance}=await import('../src/lib/appearance');
+ const gift=demoGift('archive');gift.appearance={background:'#102030',text:'#fafafa',accent:'#f0aabb',headingFont:'handwritten',bodyFont:'modern'};
+ gift.sections[0].appearance={accent:'#ab12ef',headingFont:'classic'};
+ const saved=giftSchema.parse(gift);assert.deepEqual(resolvedAppearance(saved,saved.sections[0]),{...gift.appearance,...gift.sections[0].appearance});
+ assert.equal(giftSchema.safeParse({...gift,appearance:{background:'url(https://invalid.example)'}}).success,false);
+ assert.equal(giftSchema.safeParse({...gift,appearance:{headingFont:'untrusted-font'}}).success,false);
+ delete saved.sections[0].appearance;assert.deepEqual(resolvedAppearance(saved,saved.sections[0]),gift.appearance);
+});

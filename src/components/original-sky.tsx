@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef } from "react";
+import {applyAppearance} from "@/lib/appearance";
 import type { Gift, GiftSection } from "@/lib/schema";
 export default function OriginalSky({
   gift,
@@ -10,11 +11,14 @@ export default function OriginalSky({
 }) {
   const iframe = useRef<HTMLIFrameElement>(null);
   useEffect(() => {
-    const send = () =>
+    const send = () => {
+      const doc=iframe.current?.contentDocument;
+      if(doc)applyAppearance(doc,gift,section);
       iframe.current?.contentWindow?.postMessage(
         { type: "gift-sky", gift, section },
         location.origin,
       );
+    };
     const ready = (event: MessageEvent) => {
       if (
         event.source === iframe.current?.contentWindow &&

@@ -1,4 +1,5 @@
 "use client";
+import {applyAppearance} from "@/lib/appearance";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import OriginalSky from "./original-sky";
@@ -155,13 +156,8 @@ export default function OriginalExperience({
     doc.body.style.overflow = ["archive", "surprise", "home"].includes(view)
       ? "auto"
       : "hidden";
-    const palette=gift.theme==='forest'?{'--rose':'#8bc69a','--pink':'#a5d9b7','--gold':'#dce4ac','--sea':'#85c6ad'}:gift.theme==='rose'?{'--rose':'#ff6f8d','--pink':'#fba0b5','--gold':'#e8b9d5','--sea':'#c4b0eb'}:{};
-    for(const key of ['--rose','--pink','--gold','--sea']){doc.documentElement.style.removeProperty(key);if(key in palette)doc.documentElement.style.setProperty(key,palette[key as keyof typeof palette]!);}
-    doc.documentElement.style.setProperty('--serif',gift.font==='modern'?'"Inter",system-ui,sans-serif':'"Cormorant Garamond",Didot,"Bodoni MT",Georgia,serif');
-    if (section?.type === "cosmos")
-      doc.documentElement.style.setProperty("--ink", "#000008");
-    else doc.documentElement.style.removeProperty("--ink");
-  }, [doc, view, section,gift.theme,gift.font]);
+    applyAppearance(doc,gift,section,view === "home");
+  }, [doc, view, section,gift.theme,gift.font,gift.appearance]);
   useEffect(()=>{doc?.defaultView?.scrollTo(0,0);},[doc,view,section?.id]);
   useEffect(() => {
     const attach = () => {

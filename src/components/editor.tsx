@@ -35,6 +35,7 @@ import {
 } from "@/lib/schema";
 import { price, type Catalog } from "@/lib/config";
 import type { Project } from "@/lib/service";
+import AppearanceSettings from "./appearance-settings";
 import {GiftSettings,SectionSettings,ItemSettings} from './original-settings';
 const titles = {
   film: "Film scenes",
@@ -490,6 +491,7 @@ export default function Editor({ id }: { id: string }) {
                     }
                   />
                 </Field>
+                <details className="original-settings"><summary>Page colours and fonts</summary><AppearanceSettings page value={section.appearance} inherited={draft.appearance} onChange={appearance=>mutateSection(s=>({...s,appearance}))}/></details>
                 <SectionSettings normal={draft.relationshipMode === "normal"} section={section} onChange={change=>mutateSection(s=>({...s,...change}))}/>
                 <div className="item-list">
                   {section.items.map((s, i) => (
@@ -878,6 +880,7 @@ export default function Editor({ id }: { id: string }) {
                   <i />
                   <i />
                 </div>
+                <AppearanceSettings value={draft.appearance} onChange={appearance=>update("appearance",appearance)}/>
                 <Field label="Typography">
                   <select
                     value={draft.font}
