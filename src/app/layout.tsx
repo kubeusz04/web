@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
-import { brand } from "@/lib/config";
 import "./globals.css";
 export const metadata: Metadata = {
   title: {
-    default: "WebsiteGift — A little more than a gift",
-    template: "%s · WebsiteGift",
+    default: "Secret Passage Studio — A little more than a gift",
+    template: "%s · Secret Passage Studio",
   },
   description:
     "Turn your memories into a personal, interactive gift. Create, preview, and share your story with one link.",

@@ -1,5 +1,5 @@
 import { query, transaction } from "./db";
-import { appUrl, brand } from "./config";
+import { appUrl } from "./config";
 import { termsText } from "./legal";
 type Job = {
   id: string;
@@ -62,7 +62,7 @@ export async function retryEmails() {
       JSON.stringify({
         from: process.env.MAIL_FROM,
         to: order.email,
-        subject: "WebsiteGift — order confirmation",
+        subject: "Secret Passage Studio — order confirmation",
         text: `Order confirmation: ${job.order_id}\nTotal: ${order.amount / 100} ${order.currency.toUpperCase()}\nPackage: ${plan.name}\nHosting: ${plan.days} days from confirmed payment.\nConsent record: terms=${consent.terms}, immediate delivery=${consent.immediate}, withdrawal acknowledgment=${consent.acknowledge}; version=${consent.version}; at=${consent.at}\nSeller: ${JSON.stringify(consent.seller || { name: "TEST FIXTURE" })}\nDashboard and publication: ${appUrl()}/dashboard\n\nTERMS ACCEPTED AT CHECKOUT (durable copy):\n${consent.termsText || termsText}\n\nThis confirmation is not a tax invoice.`,
       });
     const claimed = await transaction(async (tx) => {

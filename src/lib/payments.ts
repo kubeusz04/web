@@ -164,7 +164,7 @@ export async function checkout(
               price_data: {
                 currency: brand.currency,
                 unit_amount: order.plan.price,
-                product_data: { name: `WebsiteGift — ${order.plan.name}` },
+                product_data: { name: `${brand.name} — ${order.plan.name}` },
               },
               quantity: 1,
             },
