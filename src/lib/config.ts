@@ -1,7 +1,7 @@
 import { locales } from "./i18n";
 export const brand = {
-  name: "WebsiteGift",
-  displayName: "WebsiteGift",
+  name: "Secret Passage Studio",
+  displayName: "Secret Passage Studio",
   currency: "pln",
   locale: locales.en.intl,
   languages: ["en"],

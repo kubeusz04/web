@@ -1,7 +1,7 @@
-import { retention } from "./config";
-export const legalVersion = "2026-11-06-draft";
+import { retention, brand } from "./config";
+export const legalVersion = "2026-11-17-brand-draft";
 export const termsText = `DRAFT — legal review required before any real sale.
-WebsiteGift supplies personalised digital experiences accessed in a browser. Hosting is for the number of days in the purchased package, from confirmed payment. No subscription or indefinite hosting is included. Package item, file and storage limits are enforced across the complete project. Individual files are limited to 25 MB.
+${brand.name} supplies personalised digital experiences accessed in a browser. Hosting is for the number of days in the purchased package, from confirmed payment. No subscription or indefinite hosting is included. Package item, file and storage limits are enforced across the complete project. Individual files are limited to 25 MB.
 The customer must have rights to all uploaded content, including music and likenesses, and must not upload unlawful content. We may restrict abusive projects. The customer retains their rights and grants only the permission necessary to host and deliver the gift.
 Draft editing does not change the published gift. Publication requires a confirmed payment and creates a complete snapshot. Editing and republishing are included during the hosting period. Unlisted links can be forwarded; optional passwords provide additional protection. Recipients require a current browser and an internet connection; 3D requires WebGL, with a text-list fallback. Audio and video playback remain subject to browser restrictions.
 The consumer normally has a 14-day right of withdrawal. Delivery may start earlier only with the consumer’s express consent and acknowledgment of the consequences. For digital content not supplied on a tangible medium, loss of the withdrawal right requires the statutory conditions, including performance and confirmation on a durable medium. These consents do not limit statutory remedies for non-conformity or complaints. Review the legal classification of the hosting service and the digital content together before launch.

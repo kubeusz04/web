@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, ArrowLeft } from "lucide-react";
 import { Brand, Field, Notice, LocalNotice } from "./ui";
 import { api } from "@/lib/client";
+import { brand } from "@/lib/config";
 export default function Auth() {
   const [mode, setMode] = useState<"login" | "register">("register"),
     [email, setEmail] = useState(""),
@@ -33,7 +34,7 @@ export default function Auth() {
             </p>
           </div>
           <Link href="/">
-            <ArrowLeft size={16} /> Back to WebsiteGift
+            <ArrowLeft size={16} /> Back to {brand.name}
           </Link>
         </aside>
         <main className="auth-form">

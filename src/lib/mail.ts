@@ -1,5 +1,5 @@
 import { query, transaction } from "./db";
-import { appUrl } from "./config";
+import { appUrl, brand } from "./config";
 import { termsText } from "./legal";
 type Job = {
   id: string;

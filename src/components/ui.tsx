@@ -73,7 +73,7 @@ export function Footer() {
         <Link href="/legal/terms">Terms</Link>
         <Link href="/legal/privacy">Privacy</Link>
         <Link href="/legal/contact">Contact & complaints</Link>
-        <span>© {new Date().getFullYear()} WebsiteGift</span>
+        <span>© {new Date().getFullYear()} {brand.name}</span>
       </div>
     </footer>
   );

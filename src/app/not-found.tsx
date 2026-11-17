@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { brand } from "@/lib/config";
 import { Brand } from "@/components/ui";
 export default function NotFound() {
   return (
@@ -7,7 +8,7 @@ export default function NotFound() {
       <h1>This moment isn’t here.</h1>
       <p>The page may have moved, or the link may have expired.</p>
       <Link href="/" className="button">
-        Back to WebsiteGift
+        Back to {brand.name}
       </Link>
     </main>
   );

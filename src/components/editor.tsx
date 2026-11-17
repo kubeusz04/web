@@ -1062,7 +1062,7 @@ export default function Editor({ id }: { id: string }) {
                       {qr ? (
                         <a
                           href={qr}
-                          download="websitegift-qr.png"
+                          download="secret-passage-gift-qr.png"
                           className="qr-download"
                         >
                           <img
