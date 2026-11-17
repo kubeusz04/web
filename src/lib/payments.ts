@@ -13,6 +13,11 @@ export function stripe() {
     );
   return new Stripe(key);
 }
+// An explicit sandbox opt-in never substitutes for approval of live sales.
+export function sandboxCheckoutEnabled() {
+  return process.env.STRIPE_SANDBOX_CHECKOUT_ENABLED === "true" &&
+    /^(sk|rk)_test_/.test(process.env.STRIPE_SECRET_KEY || "");
+}
 export async function checkout(
   user: User,
   id: string,
@@ -24,6 +29,7 @@ export async function checkout(
     throw new AppError("Please provide the required consents.");
   if (
     process.env.APP_MODE !== "local" &&
+    !sandboxCheckoutEnabled() &&
     (process.env.LEGAL_APPROVED !== "true" ||
       !process.env.SELLER_NAME ||
       !process.env.SELLER_EMAIL ||
@@ -124,6 +130,8 @@ export async function checkout(
         "pending",
         JSON.stringify({
           ...consent,
+          sandbox: true,
+          legalApproved: process.env.LEGAL_APPROVED === "true",
           version: legalVersion,
           at: createdAt,
           termsText,

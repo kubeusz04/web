@@ -20,7 +20,7 @@ const {
   publicGift,
   sharing,
 } = await import("../src/lib/service");
-const { applyPayment, handleStripeEvent, sessionFact, stripe, checkout } = await import("../src/lib/payments");
+const { applyPayment, handleStripeEvent, sessionFact, stripe, checkout, sandboxCheckoutEnabled } = await import("../src/lib/payments");
 const { giftSchema, demoGift } = await import("../src/lib/schema");
 const { initialCatalog } = await import("../src/lib/config");
 const { passwordHash, passwordMatches, hash, rateLimit } =
@@ -548,6 +548,51 @@ test("expired pending checkout is reconciled before selecting a different packag
     "expired",
   );
   assert.equal(creates, 1);
+});
+
+test("hosted sandbox checkout works without seller approval only after explicit opt-in", async () => {
+  const p = await createProject(a, "film");
+  const names = ["APP_MODE", "STRIPE_SECRET_KEY", "STRIPE_SANDBOX_CHECKOUT_ENABLED", "LEGAL_APPROVED"] as const;
+  const saved = names.map(name => process.env[name]);
+  const client = { checkout: { sessions: { create: async () => ({id:`cs_sandbox_${p.id}`,status:"open",url:"https://checkout.stripe.com/fixture"}) } } } as unknown as Stripe;
+  const consent = {terms:true,immediate:true,acknowledge:true};
+  try {
+    process.env.APP_MODE = "service";
+    process.env.STRIPE_SECRET_KEY = "sk_test_fixture_only";
+    process.env.LEGAL_APPROVED = "false";
+    delete process.env.STRIPE_SANDBOX_CHECKOUT_ENABLED;
+    await assert.rejects(() => checkout(a,p.id,initialCatalog.plans[0].id,consent,client), /legal review/);
+    process.env.STRIPE_SANDBOX_CHECKOUT_ENABLED = "true";
+    assert.equal(await checkout(a,p.id,initialCatalog.plans[0].id,consent,client), "https://checkout.stripe.com/fixture");
+    const [order] = await query<{consent:string}>("SELECT consent FROM orders WHERE project_id=?",[p.id]);
+    assert.equal(JSON.parse(order.consent).sandbox,true);
+    assert.equal(JSON.parse(order.consent).legalApproved,false);
+  } finally {
+    names.forEach((name, i) => { if (saved[i] === undefined) delete process.env[name]; else process.env[name] = saved[i]; });
+  }
+});
+
+test("sandbox opt-in requires a test key and does not set legal approval", () => {
+  const names = ["STRIPE_SANDBOX_CHECKOUT_ENABLED", "STRIPE_SECRET_KEY", "LEGAL_APPROVED"] as const;
+  const saved = names.map(name => process.env[name]);
+  try {
+    process.env.LEGAL_APPROVED = "false";
+    process.env.STRIPE_SECRET_KEY = "sk_test_fixture_only";
+    delete process.env.STRIPE_SANDBOX_CHECKOUT_ENABLED;
+    assert.equal(sandboxCheckoutEnabled(), false);
+    process.env.STRIPE_SANDBOX_CHECKOUT_ENABLED = "true";
+    assert.equal(sandboxCheckoutEnabled(), true);
+    process.env.STRIPE_SECRET_KEY = "rk_test_fixture_only";
+    assert.equal(sandboxCheckoutEnabled(), true);
+    for (const key of ["sk_live_fixture_only", "rk_live_fixture_only", ""]) {
+      process.env.STRIPE_SECRET_KEY = key;
+      assert.equal(sandboxCheckoutEnabled(), false);
+      assert.throws(() => stripe(), /Test payments need/);
+    }
+    assert.equal(process.env.LEGAL_APPROVED, "false");
+  } finally {
+    names.forEach((name, i) => { if (saved[i] === undefined) delete process.env[name]; else process.env[name] = saved[i]; });
+  }
 });
 
 test("Stripe test restricted keys work and live keys are rejected", () => {
